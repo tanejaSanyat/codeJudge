@@ -4,18 +4,14 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 const User = require("./models/Users");
-const Contest = require("./models/Contest");
 const bodyParser = require("body-parser");
-const executeCpp = require("./src/executeCpp.js");
 const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const generateFile = require("./src/generateFile");
 const executeCppForRun = require("./src/executeCppForRun.js");
 const executePythonForRun = require("./src/executePythonForRun.js");
-const executePython = require("./src/executePython");
 const executeJavaForRun = require("./src/executeJavaForRun");
-const executeJava = require("./src/executeJava");
 const { log } = require("console");
 const fs = require("fs");
 // creating express app
@@ -23,7 +19,7 @@ const app = express();
 
 // middlewares
 const corsOptions = {
-  origin: "http://localhost:5174", // Replace with your frontend URL
+  origin: "http://localhost:5173", // Replace with your frontend URL
   credentials: true, // Allow credentials (cookies)
 };
 
@@ -210,6 +206,108 @@ app.get("/user", async (req, res) => {
     res.json(user);
   } catch (err) {
     console.error("Error fetching user:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/create", upload.any(), async (req, res) => {
+  console.log("create called ");
+  console.log("problems : ", req.body.problems);
+
+  const { useremail, contestName, duration, startTime, endTime } = req.body;
+  console.log("files: ", req.files);
+
+  try {
+    // Parse problems data from req.body.problems
+    let problems = req.body.problems;
+    if (typeof problems === "string") {
+      problems = JSON.parse(problems);
+    }
+
+    // Attach file paths if files are uploaded
+    problems = problems.map((problem, index) => {
+      const images = req.files
+        .filter((file) => file.fieldname.startsWith(`images-${index}`))
+        .map((file) => path.join("uploads/images", path.basename(file.path)));
+
+      return {
+        ...problem,
+        inputFile: path.join(
+          "uploads",
+          path.basename(
+            req.files.find(
+              (file) => file.fieldname === `problems[${index}][inputFile]`
+            )?.path || ""
+          )
+        ),
+        outputFile: path.join(
+          "uploads",
+          path.basename(
+            req.files.find(
+              (file) => file.fieldname === `problems[${index}][outputFile]`
+            )?.path || ""
+          )
+        ),
+        images,
+      };
+    });
+
+    // Attach contest image if uploaded
+    const contestImage = path.join(
+      "uploads/images",
+      path.basename(
+        req.files.find((file) => file.fieldname === "contestImage")?.path || ""
+      )
+    );
+
+    // Find the user
+    let user = await User.findOne({ email: useremail });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Create new contest
+    const newContest = new Contest({
+      contestName,
+      duration,
+      startTime: new Date(startTime),
+      endTime: new Date(endTime),
+      problems,
+      photo: contestImage,
+      createdBy: user._id,
+    });
+
+    // Save the contest
+    const savedContest = await newContest.save();
+
+    // Add the contest reference to the user's contests
+    user.contests.push(savedContest._id);
+    await user.save();
+
+    res.status(201).json({
+      message: "Contest created successfully!",
+      contest: savedContest,
+    });
+  } catch (error) {
+    console.error("Error creating contest:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+//get contests
+app.get("/getcontests", async (req, res) => {
+  try {
+    // Find users with adminRole: true
+    const adminUsers = await User.find({ adminRole: true }).select("_id");
+    const adminUserIds = adminUsers.map((user) => user._id);
+
+    // Find contests created by admin users
+    const contests = await Contest.find({ createdBy: { $in: adminUserIds } })
+      .populate("createdBy", "username")
+      .exec();
+
+    res.json(contests);
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

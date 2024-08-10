@@ -4,11 +4,11 @@ import { useState } from "react";
 const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
 const Compiler = () => {
-
   const [language, setLanguage] = useState("cpp");
   const [output, setOutput] = useState("");
-//   const [ipath, setIpath] = useState("");
-//   const [opath, setOpath] = useState("");
+  const [input, setInput] = useState("");
+  //   const [ipath, setIpath] = useState("");
+  //   const [opath, setOpath] = useState("");
 
   const [code, setCode] = useState(`#include <iostream>
     using namespace std;
@@ -33,7 +33,7 @@ const Compiler = () => {
       const response = await axios.post(`${BASE_URL}/run`, {
         language,
         code,
-        // pretestIp,
+        input,
       });
 
       if (response.data.code) {
@@ -47,17 +47,17 @@ const Compiler = () => {
     }
   };
 
-
   return (
-    <div className="w-3/5 flex flex-col p-4">
-      <div className="mb-2">
-        <select
-          className="w-full p-2 border border-gray-300 rounded bg-gray-800 text-white"
-          onChange={(e) => {
-            setLanguage(e.target.value);
-            if (e.target.value === "python") setCode(`print("hello World")`);
-            else if (e.target.value === "java")
-              setCode(`import java.util.Arrays;
+    <div className="flex">
+      <div className="w-3/5 flex flex-col p-4">
+        <div className="mb-2">
+          <select
+            className="w-full p-2 border border-gray-300 rounded bg-gray-800 text-white"
+            onChange={(e) => {
+              setLanguage(e.target.value);
+              if (e.target.value === "python") setCode(`print("hello World")`);
+              else if (e.target.value === "java")
+                setCode(`import java.util.Arrays;
 import java.util.Scanner;
 
 public class Main {
@@ -67,8 +67,8 @@ public static void main(String[] args) {
 }
 }
 `);
-            else {
-              setCode(`#include <bits/stdc++.h>
+              else {
+                setCode(`#include <bits/stdc++.h>
 using namespace std;
 #define ll long long int
 
@@ -84,34 +84,46 @@ while (_--)
 return 0;
 }
 `);
-            }
+              }
+            }}
+            value={language}
+          >
+            <option value="cpp">C++</option>
+            <option value="java">Java</option>
+            <option value="python">Python</option>
+          </select>
+        </div>
+        <Editor
+          height="70vh"
+          language={language}
+          theme="vs-dark"
+          value={code}
+          onChange={(value) => setCode(value)}
+          options={{
+            selectOnLineNumbers: true,
+            automaticLayout: true,
           }}
-          value={language}
-        >
-          <option value="cpp">C++</option>
-          <option value="java">Java</option>
-          <option value="python">Python</option>
-        </select>
+        />
       </div>
-      <Editor
-        height="70vh"
-        language={language}
-        theme="vs-dark"
-        value={code}
-        onChange={(value) => setCode(value)}
-        options={{
-          selectOnLineNumbers: true,
-          automaticLayout: true,
-        }}
-      />
-             <div className="flex mt-2">
+      <div className="w-2/5 flex flex-col p-4">
+        <div>
+          <h3 className="text-lg font-bold">Input</h3>
+
+          <textarea
+            name="input"
+            id="input"
+            className="p-2 bg-gray-800 text-white border rounded w-full text-xs font-mono"
+            rows={4}
+            onChange={e=>setInput(Number(e.target.value))}
+          />
+        </div>
+        <div className="flex mt-2">
           <button
             className="flex-1 py-2 px-4 bg-blue-500 text-white rounded mr-2 hover:bg-blue-600 transition duration-300"
             onClick={handleRunCode}
           >
             Run
           </button>
-         
         </div>
         <div className="mt-2">
           <h3 className="text-lg font-bold">Output</h3>
@@ -119,6 +131,7 @@ return 0;
             {output}
           </pre>
         </div>
+      </div>
     </div>
   );
 };
